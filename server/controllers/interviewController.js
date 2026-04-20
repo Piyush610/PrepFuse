@@ -1,7 +1,7 @@
 import InterviewSession from '../models/InterviewSession.js';
 import User from '../models/User.js';
 import Problem from '../models/Problem.js';
-import { extractResumeText, generateQuestions, evaluateAnswer } from '../services/aiService.js';
+import { extractResumeText, generateSingleQuestion, evaluateAnswer } from '../services/aiService.js';
 import { detectWeakTopics } from '../services/analyticsService.js';
 
 // @desc    Start a new interview session
@@ -9,7 +9,7 @@ import { detectWeakTopics } from '../services/analyticsService.js';
 // @access  Private
 export const startSession = async (req, res, next) => {
   try {
-    const { type = 'Mixed', questionCount = 3 } = req.body;
+    const { type = 'Mixed' } = req.body;
     const user = await User.findById(req.user._id);
     
     // 1. Detect weak topics
@@ -22,16 +22,17 @@ export const startSession = async (req, res, next) => {
       resumeText = await extractResumeText(user.resumeUrl);
     }
 
-    // 3. Let AI generate questions based on weakness and resume
-    const questions = await generateQuestions(type, weakTopics, resumeText, questionCount);
+    // 3. Start at 'Easy' and generate the first question
+    const firstQuestion = await generateSingleQuestion(type, 'Easy', weakTopics, resumeText);
 
-    // 4. Save new session to DB
+    // 4. Create session
     const session = await InterviewSession.create({
       userId: user._id,
       type,
+      difficulty: 'Easy',
       weakTopicsFocused: weakTopics,
-      resumeSnapshot: resumeText.substring(0, 500) + '...', // save a snippet for history
-      questions: questions,
+      resumeSnapshot: resumeText.substring(0, 500),
+      questions: [firstQuestion],
     });
 
     res.status(201).json(session);
@@ -59,26 +60,41 @@ export const submitAnswer = async (req, res, next) => {
       throw new Error('Question not found in this session');
     }
 
-    // Call Gemini to grade it
+    // 1. Evaluate answer
     const feedback = await evaluateAnswer(session.questions[questionIndex].question, answer);
-
-    // Save user answer and feedback
     session.questions[questionIndex].userAnswer = answer;
     session.questions[questionIndex].aiFeedback = feedback;
 
-    // Check if all questions are answered to mark session complete
-    const allAnswered = session.questions.every(q => q.userAnswer && q.userAnswer.trim() !== '');
-    if (allAnswered) {
+    // 2. Adaptive Logic: Determine next difficulty
+    const score = feedback.overallScore;
+    let nextDifficulty = session.difficulty;
+
+    if (score >= 8) {
+      if (session.difficulty === 'Easy') nextDifficulty = 'Medium';
+      else if (session.difficulty === 'Medium') nextDifficulty = 'Hard';
+    } else if (score < 5) {
+      if (session.difficulty === 'Hard') nextDifficulty = 'Medium';
+      else if (session.difficulty === 'Medium') nextDifficulty = 'Easy';
+    }
+
+    session.difficulty = nextDifficulty;
+
+    // 3. Generate NEXT question if not reached limit (limit = 5 questions)
+    if (session.questions.length < 5) {
+      const user = await User.findById(req.user._id);
+      const questionHistory = session.questions.map(q => q.question);
+      const nextQ = await generateSingleQuestion(session.type, nextDifficulty, session.weakTopicsFocused, session.resumeSnapshot, questionHistory);
+      session.questions.push(nextQ);
+    } else {
+      // Mark as completed
       session.status = 'Completed';
       session.completedAt = new Date();
-      // Calculate total score average
       const sumScores = session.questions.reduce((acc, q) => acc + (q.aiFeedback?.overallScore || 0), 0);
       session.totalScore = sumScores / session.questions.length;
     }
 
     await session.save();
-
-    res.json({ feedback, sessionStatus: session.status, totalScore: session.totalScore });
+    res.json(session);
   } catch (error) {
     next(error);
   }

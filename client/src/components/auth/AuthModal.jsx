@@ -1,6 +1,10 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../../context/AuthContext';
-import { GitBranch, Phone, Mail } from 'lucide-react';
+import { GitBranch, Phone, Mail, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Card } from '../ui/Card';
+import { Button } from '../ui/Button';
+import { Input, Label } from '../ui/Input';
 
 const AuthModal = () => {
   const { login, register } = useContext(AuthContext);
@@ -10,11 +14,25 @@ const AuthModal = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('github_status') === 'success') {
+       // Since this is a demo, we mock the github token retrieval if needed.
+       // A real app would use the token passed in URL or cookie.
+       setError('GitHub login mock success. (Local session not linked).');
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
     try {
       if (isLogin) {
         await login(email, password);
@@ -24,124 +42,183 @@ const AuthModal = () => {
     } catch (err) {
       setError(err.response?.data?.message || 'Authentication failed');
     }
+    setLoading(false);
+  };
+
+  const handleGithubAuth = () => {
+    window.location.href = 'http://localhost:5000/api/auth/github';
+  };
+
+  const sendOtp = () => {
+    if (!phone) {
+       setError('Please enter a valid phone number');
+       return;
+    }
+    setLoading(true);
+    setError('');
+    setTimeout(() => {
+       setOtpSent(true);
+       setLoading(false);
+    }, 1500); // simulate sending SMS
+  };
+
+  const verifyOtp = () => {
+    setLoading(true);
+    setTimeout(() => {
+       setError('Firebase configured but credentials missing. OTP mocked failure.');
+       setLoading(false);
+    }, 1500);
   };
 
   return (
-    <div className="w-full max-w-md bg-card rounded-2xl shadow-xl overflow-hidden border">
-      <div className="p-8">
-        <h2 className="text-2xl font-bold text-center mb-6">Welcome to PrepFusion</h2>
-        
-        {/* Tabs */}
-        <div className="flex border-b mb-6">
+    <Card className="w-full max-w-md mx-auto shadow-2xl border-zinc-800">
+      <div className="text-center mb-8">
+        <h2 className="text-3xl font-extrabold text-white tracking-tight mb-2 flex items-center justify-center gap-2">
+          Verify Identity
+        </h2>
+        <p className="text-zinc-400 text-sm">Join PrepFusion to fast-track your placement.</p>
+      </div>
+      
+      {/* Tabs */}
+      <div className="flex border-b border-zinc-800 mb-6 relative">
+        {['email', 'github', 'phone'].map((tab) => (
           <button
-            className={`flex-1 pb-3 font-medium text-sm flex items-center justify-center gap-2 border-b-2 transition-colors ${
-              activeTab === 'email' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+            key={tab}
+            className={`flex-1 pb-3 font-medium text-sm flex items-center justify-center gap-2 transition-colors relative z-10 ${
+              activeTab === tab ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
             }`}
-            onClick={() => setActiveTab('email')}
+            onClick={() => {
+               setActiveTab(tab);
+               setError('');
+               setOtpSent(false);
+            }}
           >
-            <Mail className="w-4 h-4" /> Email
+            {tab === 'email' && <Mail className="w-4 h-4" />}
+            {tab === 'github' && <GitBranch className="w-4 h-4" />}
+            {tab === 'phone' && <Phone className="w-4 h-4" />}
+            <span className="capitalize">{tab}</span>
+            {activeTab === tab && (
+              <motion.div
+                layoutId="activeTabIndicator"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 rounded-t-full"
+              />
+            )}
           </button>
-          <button
-            className={`flex-1 pb-3 font-medium text-sm flex items-center justify-center gap-2 border-b-2 transition-colors ${
-              activeTab === 'github' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-            onClick={() => setActiveTab('github')}
-          >
-            <GitBranch className="w-4 h-4" /> GitHub
-          </button>
-          <button
-             className={`flex-1 pb-3 font-medium text-sm flex items-center justify-center gap-2 border-b-2 transition-colors ${
-              activeTab === 'phone' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-            onClick={() => setActiveTab('phone')}
-          >
-            <Phone className="w-4 h-4" /> Phone
-          </button>
-        </div>
+        ))}
+      </div>
 
-        {error && <div className="mb-4 p-3 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-md text-sm">{error}</div>}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, x: 10 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -10 }}
+          transition={{ duration: 0.2 }}
+        >
+          {error && <div className="mb-4 p-3 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-sm">{error}</div>}
 
-        {activeTab === 'email' && (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
+          {activeTab === 'email' && (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {!isLogin && (
+                <div>
+                  <Label>Full Name</Label>
+                  <Input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="John Doe"
+                  />
+                </div>
+              )}
               <div>
-                <label className="block text-sm font-medium mb-1">Name</label>
-                <input
-                  type="text"
+                <Label>Email Address</Label>
+                <Input
+                  type="email"
                   required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-md bg-background focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                  placeholder="John Doe"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
                 />
               </div>
-            )}
-            <div>
-              <label className="block text-sm font-medium mb-1">Email</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 border rounded-md bg-background focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                placeholder="you@example.com"
-              />
+              <div>
+                <Label>Password</Label>
+                <Input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+              </div>
+              
+              <Button type="submit" variant="primary" className="w-full mt-6" disabled={loading}>
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (isLogin ? 'Sign In' : 'Create Account')}
+              </Button>
+              
+              <p className="text-center text-sm text-zinc-500 mt-6">
+                {isLogin ? "Don't have an account? " : "Already have an account? "}
+                <button 
+                  type="button" 
+                  onClick={() => setIsLogin(!isLogin)}
+                  className="text-blue-400 hover:text-blue-300 hover:underline font-medium transition-colors"
+                >
+                  {isLogin ? 'Sign up' : 'Sign in'}
+                </button>
+              </p>
+            </form>
+          )}
+
+          {activeTab === 'github' && (
+            <div className="text-center py-6 space-y-4">
+              <p className="text-sm text-zinc-400 mb-4">Link your GitHub to showcase your repositories immediately.</p>
+              <Button onClick={handleGithubAuth} variant="secondary" className="w-full gap-2 text-white border-zinc-700 hover:bg-zinc-800">
+                <GitBranch className="w-5 h-5" />
+                Continue with GitHub
+              </Button>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Password</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 border rounded-md bg-background focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                placeholder="••••••••"
-              />
+          )}
+
+          {activeTab === 'phone' && (
+            <div className="text-center py-6 space-y-4">
+              <p className="text-sm text-zinc-400 mb-6">Use your phone number to receive a secure OTP code via Firebase.</p>
+              {!otpSent ? (
+                <div className="space-y-4 text-left">
+                  <div>
+                    <Label>Phone Number</Label>
+                    <Input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+1 234 567 8900"
+                    />
+                  </div>
+                  <Button onClick={sendOtp} variant="outline" className="w-full gap-2 border-zinc-700 hover:bg-zinc-800" disabled={loading}>
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Phone className="w-5 h-5" /> Send OTP via SMS</>}
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4 text-left">
+                  <div>
+                    <Label>Verification Code</Label>
+                    <Input
+                      type="text"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      placeholder="123456"
+                    />
+                  </div>
+                  <Button onClick={verifyOtp} variant="primary" className="w-full" disabled={loading}>
+                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Verify Code'}
+                  </Button>
+                  <button onClick={() => setOtpSent(false)} className="text-xs text-zinc-500 hover:text-white mt-2 underline w-full text-center">Change Phone Number</button>
+                </div>
+              )}
             </div>
-            
-            <button
-              type="submit"
-              className="w-full py-2.5 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors mt-2"
-            >
-              {isLogin ? 'Sign In' : 'Sign Up'}
-            </button>
-            
-            <p className="text-center text-sm text-muted-foreground mt-4">
-              {isLogin ? "Don't have an account? " : "Already have an account? "}
-              <button 
-                type="button" 
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-primary hover:underline font-medium"
-              >
-                {isLogin ? 'Create one' : 'Sign in'}
-              </button>
-            </p>
-          </form>
-        )}
-
-        {/* Placeholder logic for future OAuth/OTP implementation in phase 2 */}
-        {activeTab === 'github' && (
-          <div className="text-center py-6">
-            <button className="w-full flex items-center justify-center gap-2 py-2.5 border rounded-md bg-[#24292e] text-white hover:bg-[#2c3137] transition-colors">
-              <GitBranch className="w-5 h-5" />
-              Continue with GitHub
-            </button>
-            <p className="text-xs text-muted-foreground mt-4">GitHub integration coming in Phase 2</p>
-          </div>
-        )}
-
-        {activeTab === 'phone' && (
-          <div className="text-center py-6">
-             <button className="w-full flex items-center justify-center gap-2 py-2.5 border rounded-md hover:bg-muted transition-colors font-medium">
-              <Phone className="w-5 h-5" />
-              Send OTP via SMS
-            </button>
-            <p className="text-xs text-muted-foreground mt-4">Firebase OTP coming in Phase 2</p>
-          </div>
-        )}
-
-      </div>
-    </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
+    </Card>
   );
 };
 

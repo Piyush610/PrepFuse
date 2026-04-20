@@ -12,20 +12,32 @@ const interviewSessionSchema = new mongoose.Schema(
       enum: ['HR', 'Technical', 'Mixed'],
       required: true,
     },
+    difficulty: {
+      type: String,
+      enum: ['Easy', 'Medium', 'Hard'],
+      default: 'Easy',
+    },
     weakTopicsFocused: [String],
-    resumeSnapshot: String, // Extracted parsed text from resume at session start
+    resumeSnapshot: String,
     questions: [
       {
         question: String,
+        level: String, // Easy, Medium, Hard
         userAnswer: {
           type: String,
           default: '',
         },
         aiFeedback: {
-          relevanceScore: Number, // 0-10
-          clarityScore: Number, // 0-10
+          relevanceScore: Number,
+          clarityScore: Number,
+          technicalScore: Number,
+          completenessScore: Number,
+          overallScore: Number,
+          analysis: String,
+          strengths: [String],
+          weaknesses: [String],
           suggestions: [String],
-          overallScore: Number, // 0-10 combined
+          suggestedAnswer: String,
         },
       },
     ],

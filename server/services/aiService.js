@@ -32,38 +32,46 @@ export const extractResumeText = async (pdfUrl) => {
 };
 
 /**
- * Generates N questions targeting weak topics & resume.
+ * Generates a SINGLE question based on current difficulty and user context.
  */
-export const generateQuestions = async (type, weakTopics, resumeText, count = 3) => {
+export const generateSingleQuestion = async (type, difficulty, weakTopics, resumeText, questionHistory = []) => {
   if (!aiModel) {
-    // Return mocked questions if no API key
-    return Array(count).fill(0).map((_, i) => ({
-      question: `[MOCK] Describe your experience with ${weakTopics[0] || 'software engineering'}?`,
-    }));
+    const mockPool = {
+      Easy: ["Tell me about yourself.", "What are arrays and strings?"],
+      Medium: ["Explain how a Linked List works.", "How do you handle conflict in a team?"],
+      Hard: ["Design a rate limiter.", "Solve the Longest Increasing Subsequence problem using DP."]
+    };
+    const pool = mockPool[difficulty] || mockPool.Easy;
+    return { question: `[MOCK] ${pool[Math.floor(Math.random() * pool.length)]}`, level: difficulty };
   }
 
   const prompt = `
-    You are an expert tech interviewer. Generate ${count} interview questions for a candidate.
-    
-    Context:
-    - Interview Type: ${type} (If Mixed, provide both technical and HR)
-    - Areas candidate needs practice on (Focus technical questions here): ${weakTopics.join(', ')}
-    - Candidate Resume summary: ${resumeText || 'Not provided'}
-    
-    Format the response as a pure JSON array of strings containing ONLY the questions. Example: ["Q1?", "Q2?", "Q3?"]
+    You are an AI Interviewer for PrepFusion. 
+    Current Level: ${difficulty}
+    Interview Type: ${type}
+    Weak Topics: ${weakTopics.join(', ')}
+    Resume: ${resumeText || 'Not provided'}
+    Question History: ${questionHistory.join(' | ')}
+
+    Instructions:
+    1. Generate ONE question that matches the logic:
+       - Easy: Basic HR or Fundamentals (Programming basics, simple arrays/strings).
+       - Medium: Intermediate DSA (Linked lists, stacks, queues) or Scenario-based.
+       - Hard: Complex DSA (Graphs, DP) or System Design basics.
+    2. Do NOT repeat questions from history.
+    3. Make it professional and conversational.
+
+    Format: JSON { "question": "...", "level": "${difficulty}" }
   `;
 
   try {
     const result = await aiModel.generateContent(prompt);
     const text = result.response.text();
-    // safely parse JSON out of text response (strip markdown wrappers)
     const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const parsedQuestions = JSON.parse(jsonStr);
-    
-    return parsedQuestions.map(q => ({ question: q }));
+    return JSON.parse(jsonStr);
   } catch (error) {
-    console.error('Error in generateQuestions', error);
-    throw new Error('Failed to generate AI questions');
+    console.error('Error in generateSingleQuestion', error);
+    return { question: "Could you tell me about your technical background?", level: difficulty };
   }
 };
 
@@ -75,22 +83,40 @@ export const evaluateAnswer = async (question, answer) => {
       return {
           relevanceScore: 7,
           clarityScore: 6,
-          suggestions: ["[MOCK] Try to be more concise.", "[MOCK] Use the STAR method."],
-          overallScore: 6.5
+          technicalScore: 6,
+          completenessScore: 5,
+          overallScore: 6,
+          analysis: "Feedback is mocked since GEMINI_API_KEY is missing.",
+          strengths: ["You identified the core concept."],
+          weaknesses: ["Missing depth in explanation."],
+          suggestions: ["Be more descriptive.", "Use real-world examples."],
+          suggestedAnswer: "A full perfect answer for this question would be..."
       };
   }
 
   const prompt = `
-    You are an expert tech interviewer grading an answer.
-    
-    Question asked: "${question}"
-    Candidate's Answer: "${answer}"
-    
-    Grade this answer and return EXACTLY this JSON format (no markdown, just raw JSON):
+    Analyze this interview answer:
+    Question: "${question}"
+    Answer: "${answer}"
+
+    Evaluate based on:
+    1. Relevance
+    2. Clarity
+    3. Technical Correctness
+    4. Completeness
+
+    Return JSON:
     {
-      "relevanceScore": <number 0-10>,
-      "clarityScore": <number 0-10>,
-      "suggestions": ["<suggestion 1>", "<suggestion 2>"]
+      "relevanceScore": <0-10>,
+      "clarityScore": <0-10>,
+      "technicalScore": <0-10>,
+      "completenessScore": <0-10>,
+      "overallScore": <0-10>,
+      "analysis": "...",
+      "strengths": ["...", "..."],
+      "weaknesses": ["...", "..."],
+      "suggestions": ["...", "..."],
+      "suggestedAnswer": "..."
     }
   `;
 
@@ -98,12 +124,9 @@ export const evaluateAnswer = async (question, answer) => {
     const result = await aiModel.generateContent(prompt);
     const text = result.response.text();
     const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const feedback = JSON.parse(jsonStr);
-    
-    feedback.overallScore = (feedback.relevanceScore + feedback.clarityScore) / 2;
-    return feedback;
+    return JSON.parse(jsonStr);
   } catch (error) {
     console.error("AI Evaluation error:", error);
-    return { relevanceScore: 0, clarityScore: 0, suggestions: ["Error evaluating answer"], overallScore: 0 };
+    return { overallScore: 0, analysis: "Error analyzing answer" };
   }
 };
