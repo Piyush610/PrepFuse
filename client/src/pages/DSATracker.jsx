@@ -1,180 +1,164 @@
-import React, { useState, useEffect } from 'react';
-import api from '../services/api';
-import StatsCharts from '../components/dsa/StatsCharts';
-import { Plus, Trash2, X } from 'lucide-react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardContent } from '../components/ui/Card';
+import { Plus, Trophy, Flame, Target, ChevronRight, Search, Filter } from 'lucide-react';
+import StatsCharts from '../components/dsa/StatsCharts';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input, Label } from '../components/ui/Input';
-import { Badge } from '../components/ui/Badge';
-
-const TOPICS = ['Array', 'String', 'LinkedList', 'Tree', 'Graph', 'DP', 'Heap', 'Stack', 'Recursion', 'Sorting', 'Searching', 'Other'];
-const PLATFORMS = ['LeetCode', 'Codeforces', 'GeeksForGeeks', 'Other'];
-const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
 
 const DSATracker = () => {
-  const [problems, setProblems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ name: '', platform: 'LeetCode', difficulty: 'Easy', topic: 'Array', link: '' });
-  const [refreshStats, setRefreshStats] = useState(0); 
-
-  useEffect(() => {
-    fetchProblems();
-  }, []);
-
-  const fetchProblems = async () => {
-    try {
-      const { data } = await api.get('/dsa/problems');
-      setProblems(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAddProblem = async (e) => {
-    e.preventDefault();
-    try {
-      const { data } = await api.post('/dsa/problems', formData);
-      setProblems([data, ...problems]);
-      setShowForm(false);
-      setFormData({ name: '', platform: 'LeetCode', difficulty: 'Easy', topic: 'Array', link: '' });
-      setRefreshStats(prev => prev + 1); 
-    } catch (err) {
-      alert(err.response?.data?.message || 'Error adding problem');
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm("Delete this problem?")) return;
-    try {
-      await api.delete(`/dsa/problems/${id}`);
-      setProblems(problems.filter(p => p._id !== id));
-      setRefreshStats(prev => prev + 1);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const getDifficultyBadge = (level) => {
-    const map = { Easy: 'success', Medium: 'warning', Hard: 'danger' };
-    return <Badge variant={map[level]}>{level}</Badge>;
-  };
-
-  const selectStyles = "flex h-10 w-full rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors appearance-none";
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [problems, setProblems] = useState([
+    { id: 1, title: 'Two Sum', difficulty: 'Easy', topic: 'Arrays', status: 'Solved', date: '2024-03-20' },
+    { id: 2, title: 'Longest Substring', difficulty: 'Medium', topic: 'Strings', status: 'Solved', date: '2024-03-19' },
+    { id: 3, title: 'Merge K Sorted Lists', difficulty: 'Hard', topic: 'Heaps', status: 'In Progress', date: '2024-03-18' },
+  ]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative">
-      {/* Background Ambience */}
-      <div className="absolute top-40 left-10 w-96 h-96 bg-purple-600 rounded-full mix-blend-multiply filter blur-[150px] opacity-10 pointer-events-none"></div>
+    <div className="max-w-7xl mx-auto px-6 py-8 space-y-8 relative">
+      {/* Background Accents for inner pages */}
+      <div className="bg-orb orb-indigo opacity-20" />
+      <div className="bg-orb orb-violet opacity-10" />
 
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-           <h1 className="text-4xl font-extrabold text-white tracking-tight">DSA Dashboard</h1>
-           <p className="text-zinc-400 mt-2">Log submissions to build the intelligence of your AI Interviewer.</p>
+          <h1 className="text-4xl font-extrabold tracking-tight text-white mb-2">Performance Dashboard</h1>
+          <p className="text-zinc-500 font-medium text-sm">Welcome back, track your progress and crush your goals.</p>
         </div>
         <Button 
-          variant={showForm ? 'secondary' : 'primary'}
-          onClick={() => setShowForm(!showForm)}
-          className="shrink-0 gap-2"
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="bg-indigo-600 hover:bg-indigo-500 shadow-xl shadow-indigo-500/20 rounded-2xl px-6 py-6 gap-2"
         >
-          {showForm ? <><X className="w-5 h-5"/> Cancel</> : <><Plus className="w-5 h-5"/> Log Submission</>}
+          <Plus className="w-5 h-5" /> Log New Submission
         </Button>
       </div>
 
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[
+          { icon: <Flame className="w-5 h-5 text-orange-500" />, label: "Current Streak", value: "12 Days", sub: "+2 from yesterday" },
+          { icon: <Trophy className="w-5 h-5 text-yellow-500" />, label: "Problems Solved", value: "248", sub: "Top 5% this week" },
+          { icon: <Target className="w-5 h-5 text-indigo-500" />, label: "Success Rate", value: "76%", sub: "Improving steadily" }
+        ].map((stat, idx) => (
+          <Card key={idx} className="glass-container border-0 rounded-3xl inner-glow">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-white/5 rounded-xl">{stat.icon}</div>
+                <span className="text-zinc-500 text-sm font-semibold">{stat.label}</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-white">{stat.value}</span>
+                <span className="text-xs text-emerald-500 font-bold">{stat.sub}</span>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
       <AnimatePresence>
-        {showForm && (
+        {showAddForm && (
           <motion.div
-            initial={{ opacity: 0, height: 0, y: -20 }}
-            animate={{ opacity: 1, height: 'auto', y: 0 }}
-            exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
-            className="mb-8"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
           >
-            <Card>
-              <CardContent className="pt-6">
-                <form onSubmit={handleAddProblem} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 items-end">
-                  <div className="lg:col-span-2">
-                    <Label>Problem Name</Label>
-                    <Input required type="text" value={formData.name} onChange={(e)=>setFormData({...formData, name: e.target.value})} placeholder="e.g. Reverse Linked List" />
-                  </div>
-                  <div>
-                    <Label>Platform</Label>
-                    <select value={formData.platform} onChange={(e)=>setFormData({...formData, platform: e.target.value})} className={selectStyles}>
-                      {PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <Label>Topic Focus</Label>
-                    <select value={formData.topic} onChange={(e)=>setFormData({...formData, topic: e.target.value})} className={selectStyles}>
-                      {TOPICS.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                   <div>
-                    <Label>Difficulty Level</Label>
-                    <select value={formData.difficulty} onChange={(e)=>setFormData({...formData, difficulty: e.target.value})} className={selectStyles}>
-                      {DIFFICULTIES.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <Button type="submit" variant="primary" className="w-full">Save Entry</Button>
-                  </div>
-                </form>
-              </CardContent>
+            <Card className="glass-container border-0 rounded-[2rem] inner-glow mb-8 overflow-hidden">
+               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-purple-500" />
+               <CardHeader>
+                  <CardTitle className="text-2xl font-bold">New Problem Entry</CardTitle>
+               </CardHeader>
+               <CardContent>
+                  <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
+                    <div className="space-y-2">
+                      <Label className="text-zinc-400 font-bold text-xs uppercase tracking-widest">Problem Title</Label>
+                      <Input placeholder="e.g. Binary Tree Level Order" className="bg-white/5 border-white/10 rounded-xl" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-zinc-400 font-bold text-xs uppercase tracking-widest">Category</Label>
+                      <Input placeholder="e.g. Trees" className="bg-white/5 border-white/10 rounded-xl" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-zinc-400 font-bold text-xs uppercase tracking-widest">Difficulty</Label>
+                      <select className="w-full h-10 px-3 bg-white/5 border border-white/10 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-white">
+                        <option className="bg-zinc-950">Easy</option>
+                        <option className="bg-zinc-950">Medium</option>
+                        <option className="bg-zinc-950">Hard</option>
+                      </select>
+                    </div>
+                    <Button className="bg-white text-black font-bold hover:bg-zinc-200 rounded-xl h-10">Add Problem</Button>
+                  </form>
+               </CardContent>
             </Card>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="mb-12">
-         <StatsCharts key={refreshStats} />
-      </div>
-
-      <Card className="overflow-hidden p-0 bg-zinc-900 border-zinc-800 shadow-2xl">
-         <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-                <thead className="bg-zinc-800/80 border-b border-zinc-800 text-zinc-300 uppercase text-xs font-bold tracking-wider">
-                    <tr>
-                        <th className="px-6 py-5">Problem Details</th>
-                        <th className="px-6 py-5">Classification</th>
-                        <th className="px-6 py-5">Difficulty</th>
-                        <th className="px-6 py-5 hidden sm:table-cell">Date Cleared</th>
-                        <th className="px-6 py-5 text-right">Settings</th>
-                    </tr>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Table Section */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="glass-container border-0 rounded-[2rem] inner-glow overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between border-b border-white/5">
+              <CardTitle className="text-xl font-bold">Recent Submissions</CardTitle>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm" className="hover:bg-white/5 rounded-xl"><Filter className="w-4 h-4" /></Button>
+                <Button variant="ghost" size="sm" className="hover:bg-white/5 rounded-xl"><Search className="w-4 h-4" /></Button>
+              </div>
+            </CardHeader>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-white/[0.02] border-b border-white/5">
+                    <th className="px-6 py-4 text-zinc-500 font-bold text-xs uppercase tracking-widest">Problem</th>
+                    <th className="px-6 py-4 text-zinc-500 font-bold text-xs uppercase tracking-widest">Topic</th>
+                    <th className="px-6 py-4 text-zinc-500 font-bold text-xs uppercase tracking-widest">Difficulty</th>
+                    <th className="px-6 py-4 text-zinc-500 font-bold text-xs uppercase tracking-widest">Status</th>
+                    <th className="px-6 py-4 text-zinc-500 font-bold text-xs uppercase tracking-widest text-right">Action</th>
+                  </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-800/50 text-zinc-300">
-                    {loading ? (
-                        <tr><td colSpan="5" className="text-center py-12">Loading problem history...</td></tr>
-                    ) : problems.length === 0 ? (
-                        <tr><td colSpan="5" className="text-center py-16 text-zinc-500 font-medium text-base">Your history is clear. Complete a problem and log it to build traction!</td></tr>
-                    ) : (
-                        problems.map((p) => (
-                            <tr key={p._id} className="hover:bg-zinc-800/50 transition-colors group">
-                                <td className="px-6 py-5 font-semibold text-white">
-                                  {p.name}
-                                </td>
-                                <td className="px-6 py-5">
-                                  <Badge variant="default" className="text-zinc-400 bg-zinc-800">{p.topic}</Badge>
-                                </td>
-                                <td className="px-6 py-5">
-                                  {getDifficultyBadge(p.difficulty)}
-                                </td>
-                                <td className="px-6 py-5 hidden sm:table-cell text-zinc-500">
-                                   {new Date(p.solvedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                                </td>
-                                <td className="px-6 py-5 text-right">
-                                    <button onClick={() => handleDelete(p._id)} className="text-zinc-600 hover:text-red-400 p-2 rounded-md hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100">
-                                        <Trash2 className="w-5 h-5" />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))
-                    )}
+                <tbody className="divide-y divide-white/5">
+                  {problems.map((prob) => (
+                    <tr key={prob.id} className="hover:bg-white/[0.02] transition-colors group">
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-white group-hover:text-indigo-400 transition-colors">{prob.title}</p>
+                        <p className="text-[10px] text-zinc-600 font-medium mt-1 uppercase tracking-tighter">{prob.date}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="px-3 py-1 bg-white/5 rounded-full text-xs font-bold text-zinc-400">{prob.topic}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`text-xs font-black ${
+                          prob.difficulty === 'Easy' ? 'text-emerald-400' : 
+                          prob.difficulty === 'Medium' ? 'text-orange-400' : 'text-red-400'
+                        }`}>
+                          {prob.difficulty}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                           <div className={`w-1.5 h-1.5 rounded-full ${prob.status === 'Solved' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-orange-500 animate-pulse'}`} />
+                           <span className="text-xs font-bold text-zinc-300">{prob.status}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button className="p-2 hover:bg-white/10 rounded-xl transition-colors">
+                          <ChevronRight className="w-4 h-4 text-zinc-500" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
-            </table>
-         </div>
-      </Card>
+              </table>
+            </div>
+          </Card>
+        </div>
+
+        {/* Charts Section */}
+        <div className="lg:col-span-1">
+          <StatsCharts />
+        </div>
+      </div>
     </div>
   );
 };
